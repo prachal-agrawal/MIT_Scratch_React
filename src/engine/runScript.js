@@ -105,6 +105,8 @@ function applyCollisions(api) {
   fresh.forEach(([idA, idB]) => {
     api.swapRuntimeQueues(idA, idB);
     api.swapSpriteBlocks(idA, idB);
+    api.runtime.startRunner(idA);
+    api.runtime.startRunner(idB);
   });
 }
 
@@ -122,19 +124,42 @@ async function runSpriteQueue(spriteId, api) {
   }
 }
 
-export async function runAllScripts(api) {
-  const sprites = api.getSprites();
-  sprites.forEach((sprite) => {
-    api.runtime.queues[sprite.id] = cloneBlocks(sprite.blocks);
-  });
-  api.runtime.overlapping = findNewCollisions(sprites, new Set()).current;
+export function runAllScripts(api) {
+  return new Promise((resolve, reject) => {
+    const sprites = api.getSprites();
+    const active = new Set();
+    let settled = false;
 
-  await Promise.all(
-    sprites.map((sprite) =>
-      runSpriteQueue(sprite.id, api).catch((error) => {
-        if (error && error.name === "AbortError") return;
-        throw error;
-      })
-    )
-  );
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      if (error) reject(error);
+      else resolve();
+    };
+
+    // A sprite whose script already ended can receive new steps from a
+    // collision swap, so runners are (re)started on demand.
+    api.runtime.startRunner = (spriteId) => {
+      if (settled || api.signal.aborted || active.has(spriteId)) return;
+      const queue = api.runtime.queues[spriteId];
+      if (!queue || queue.length === 0) return;
+      active.add(spriteId);
+      runSpriteQueue(spriteId, api)
+        .catch((error) => {
+          if (!error || error.name !== "AbortError") finish(error);
+        })
+        .finally(() => {
+          active.delete(spriteId);
+          if (active.size === 0) finish();
+        });
+    };
+
+    sprites.forEach((sprite) => {
+      api.runtime.queues[sprite.id] = cloneBlocks(sprite.blocks);
+    });
+    api.runtime.overlapping = findNewCollisions(sprites, new Set()).current;
+
+    sprites.forEach((sprite) => api.runtime.startRunner(sprite.id));
+    if (active.size === 0) finish();
+  });
 }

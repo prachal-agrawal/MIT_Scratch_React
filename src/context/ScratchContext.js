@@ -16,7 +16,11 @@ import {
   createSprite,
   sanitizeText,
 } from "../constants/blocks";
-import { SPRITE_WIDTH } from "../engine/collision";
+import {
+  SPRITE_WIDTH,
+  aabbOverlap,
+  clampPosition,
+} from "../engine/collision";
 import {
   insertNewBlock,
   moveBlock,
@@ -67,13 +71,43 @@ export function ScratchProvider({ children }) {
     setSelectedSpriteId(id);
   }, []);
 
+  const moveSprite = useCallback((id, x, y) => {
+    const { width, height } = stageRef.current;
+    const position = clampPosition(
+      clampNumber(x, LIMITS.coord),
+      clampNumber(y, LIMITS.coord),
+      width,
+      height
+    );
+    spritesRef.current = patchSpriteList(spritesRef.current, id, position);
+    setSprites(spritesRef.current);
+  }, []);
+
   const addSprite = useCallback(() => {
     setSprites((current) => {
       if (current.length >= MAX_SPRITES) return current;
+      const { width, height } = stageRef.current;
+      const columns = Math.max(1, Math.floor((width - 16) / 130));
+      const slotPosition = (slot) =>
+        clampPosition(
+          16 + (slot % columns) * 130,
+          40 + Math.floor(slot / columns) * 120,
+          width,
+          height
+        );
+      // Sprites that start overlapping never trigger a fresh collision.
+      let slot = 0;
+      while (
+        slot < MAX_SPRITES * 2 &&
+        current.some((other) => aabbOverlap(other, slotPosition(slot)))
+      ) {
+        slot += 1;
+      }
+      const position = slotPosition(slot);
       const sprite = createSprite(
         `Sprite ${current.length + 1}`,
-        40 + current.length * 140,
-        80
+        position.x,
+        position.y
       );
       spritesRef.current = [...current, sprite];
       setSelectedSpriteId(sprite.id);
@@ -271,6 +305,7 @@ export function ScratchProvider({ children }) {
       stageSize,
       swapNotice,
       selectSprite,
+      moveSprite,
       addSprite,
       removeSprite,
       addBlockAt,
@@ -290,6 +325,7 @@ export function ScratchProvider({ children }) {
       stageSize,
       swapNotice,
       selectSprite,
+      moveSprite,
       addSprite,
       removeSprite,
       addBlockAt,

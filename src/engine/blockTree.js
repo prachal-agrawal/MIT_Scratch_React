@@ -90,10 +90,27 @@ export function insertNewBlock(blocks, parentId, index, block) {
   return insertBlock(blocks, parentId, index, block);
 }
 
+function findLocation(blocks, id, parentId = null) {
+  const list = blocks || [];
+  for (let i = 0; i < list.length; i += 1) {
+    if (list[i].id === id) return { parentId, index: i };
+    if (list[i].type === BLOCK_TYPES.REPEAT) {
+      const found = findLocation(list[i].children, id, list[i].id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 export function moveBlock(blocks, blockId, parentId, index) {
-  if (blockId === parentId) return blocks;
+  const targetParent = parentId == null ? null : parentId;
+  if (blockId === targetParent) return blocks;
+  const origin = findLocation(blocks, blockId);
+  if (!origin) return blocks;
   const { tree, extracted } = extractBlock(blocks, blockId);
-  if (!extracted) return blocks;
-  if (parentId && containsId(extracted, parentId)) return blocks;
-  return insertBlock(tree, parentId, index, extracted);
+  if (targetParent && containsId(extracted, targetParent)) return blocks;
+  // Removing the block first shifts later siblings up by one.
+  const adjustedIndex =
+    origin.parentId === targetParent && origin.index < index ? index - 1 : index;
+  return insertBlock(tree, targetParent, adjustedIndex, extracted);
 }

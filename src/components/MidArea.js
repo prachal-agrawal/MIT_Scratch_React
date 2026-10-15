@@ -1,6 +1,6 @@
 import React from "react";
 import { useScratch } from "../hooks/useScratch";
-import Block, { readDragData } from "./Block";
+import Block, { clearDropHint, readDragData } from "./Block";
 
 export default function MidArea() {
   const {
@@ -25,16 +25,22 @@ export default function MidArea() {
 
   const handleAreaDrop = (event) => {
     event.preventDefault();
+    clearDropHint();
     const payload = readDragData(event);
     if (!payload) return;
     const index = (selectedSprite.blocks || []).length;
     handleDropAt(payload, null, index);
   };
 
+  const handleAreaDragOver = (event) => {
+    event.preventDefault();
+    if (event.target === event.currentTarget) clearDropHint();
+  };
+
   return (
     <div
       className="flex-1 h-full overflow-auto p-3 bg-gray-50"
-      onDragOver={(event) => event.preventDefault()}
+      onDragOver={handleAreaDragOver}
       onDrop={handleAreaDrop}
     >
       <div className="text-sm font-semibold text-gray-700 mb-2">

@@ -11,6 +11,7 @@ export default function PreviewArea() {
     isPlaying,
     swapNotice,
     selectSprite,
+    moveSprite,
     addSprite,
     removeSprite,
     playAll,
@@ -73,10 +74,6 @@ export default function PreviewArea() {
 
       <div
         ref={stageEl}
-        data-speech={sprites
-          .map((sprite) => (sprite.message ? sprite.message.text : ""))
-          .filter(Boolean)
-          .join(",")}
         className="relative flex-1 border border-gray-200 rounded bg-white overflow-hidden"
       >
         {sprites.map((sprite) => (
@@ -85,6 +82,7 @@ export default function PreviewArea() {
             sprite={sprite}
             selected={sprite.id === selectedSpriteId}
             onSelect={selectSprite}
+            onMove={moveSprite}
           />
         ))}
       </div>
